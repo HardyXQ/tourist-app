@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en" class="h-100" data-bs-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Историческая интерактивная карта по знаковым местам">
+    <meta name="author" content="Historical Map">
+    <title>Историческая карта · Путешествие во времени</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Load static files -->
+    {% load static %}
+
+    <style>
+        /* New preloader styles */
+        #preloader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #f8f9fa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease;
+        }
+
+        [data-bs-theme="dark"] #preloader {
+            background: #212529;
+        }
+
+        .loader {
+            width: 50px;
+            aspect-ratio: 1;
+            border-radius: 50%;
+            border: 8px solid;
+            border-color: #000 #0000;
+            animation: l1 1s infinite;
+        }
+
+        [data-bs-theme="dark"] .loader {
+            border-color: #fff #0000;
+        }
+
+        @keyframes l1 {
+            to {
+                transform: rotate(.5turn);
+            }
+        }
+
+        /* Background carousel */
+        .carousel-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        #backgroundCarousel {
+            height: 100%;
+        }
+
+        .carousel-item {
+            height: 100vh;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        .carousel-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 1;
+        }
+
+        [data-bs-theme="light"] .carousel-item::before {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Стрелки карусели - ИСПРАВЛЕНО ДЛЯ ТЕЛЕФОНОВ */
+        .carousel-control-prev,
+        .carousel-control-next {
+            z-index: 100;
+            width: 50px;
+            height: 50px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            margin: 0 20px;
+            transition: all 0.3s ease;
+            opacity: 1;
+            border: none;
+            cursor: pointer;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .carousel-control-prev {
+            left: 20px;
+        }
+
+        .carousel-control-next {
+            right: 20px;
+        }
+
+        .carousel-control-prev:hover,
+        .carousel-control-next:hover {
+            background: rgba(255, 255, 255, 0.6);
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        /* Индикаторы */
+        .carousel-indicators {
+            z-index: 100;
+            bottom: 30px;
+            margin: 0;
+        }
+
+        .carousel-indicators [data-bs-target] {
+            width: 40px;
+            height: 4px;
+            border-radius: 2px;
+            margin: 0 5px;
+            background-color: rgba(255, 255, 255, 0.5);
+            border: none;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+
+        .carousel-indicators [data-bs-target].active {
+            background-color: white;
+            transform: scaleX(1.2);
+        }
+
+        /* Main content styles */
+        .cover-container {
+            max-width: 42em;
+            position: relative;
+            z-index: 10;
+            pointer-events: none; /* Разрешаем клики сквозь контент */
+        }
+
+        .cover-container * {
+            pointer-events: auto; /* Но внутри контента клики работают */
+        }
+
+        .nav-masthead .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            border-bottom: .25rem solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .nav-masthead .nav-link:hover,
+        .nav-masthead .nav-link:focus {
+            border-bottom-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .nav-masthead .active {
+            color: #fff;
+            border-bottom-color: #fff;
+        }
+
+        [data-bs-theme="light"] .nav-masthead .nav-link {
+            color: rgba(0, 0, 0, 0.7);
+        }
+
+        [data-bs-theme="light"] .nav-masthead .nav-link:hover,
+        [data-bs-theme="light"] .nav-masthead .nav-link:focus {
+            border-bottom-color: rgba(0, 0, 0, 0.5);
+        }
+
+        [data-bs-theme="light"] .nav-masthead .active {
+            color: #000;
+            border-bottom-color: #000;
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes themeTransition {
+            0% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.3;
+            }
+            100% {
+                opacity: 1;
+            }
+        }
+
+        /* Анимация свечения для кнопки */
+        @keyframes mysticalGlow {
+            0% {
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5),
+                           0 0 15px rgba(255, 255, 255, 0.4),
+                           0 0 25px rgba(255, 255, 255, 0.3),
+                           0 0 35px rgba(255, 255, 255, 0.2);
+            }
+            50% {
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5),
+                           0 0 20px rgba(255, 255, 255, 0.5),
+                           0 0 30px rgba(255, 255, 255, 0.4),
+                           0 0 40px rgba(255, 255, 255, 0.3);
+            }
+            100% {
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5),
+                           0 0 15px rgba(255, 255, 255, 0.4),
+                           0 0 25px rgba(255, 255, 255, 0.3),
+                           0 0 35px rgba(255, 255, 255, 0.2);
+            }
+        }
+
+        .animate-fade-in-up {
+            animation: fadeInUp 1s ease-out;
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 1.5s ease-out;
+        }
+
+        .animate-delay-1 {
+            animation-delay: 0.3s;
+        }
+
+        .animate-delay-2 {
+            animation-delay: 0.6s;
+        }
+
+        .theme-transition {
+            animation: themeTransition 0.6s ease-in-out;
+        }
+
+        /* Button styles */
+        .start-btn {
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 30px;
+            margin-top: 2rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .start-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .start-btn:hover::before {
+            left: 100%;
+        }
+
+        /* Light theme button */
+        .start-btn {
+            background-color: #000;
+            color: #fff;
+            border: 2px solid #000;
+        }
+
+        .start-btn:hover {
+            background-color: #333;
+            border-color: #333;
+            color: #fff;
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Dark theme button */
+        [data-bs-theme="dark"] .start-btn {
+            background-color: #fff;
+            color: #000;
+            border: 2px solid #fff;
+        }
+
+        [data-bs-theme="dark"] .start-btn:hover {
+            background-color: #e9ecef;
+            border-color: #e9ecef;
+            color: #000;
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 10px 25px rgba(255, 255, 255, 0.3);
+        }
+
+        /* Modal styles */
+        .modal-content {
+            border-radius: 15px;
+            overflow: hidden;
+            z-index: 10000;
+        }
+
+        .excursion-btn {
+            padding: 20px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            color: white;
+            transition: all 0.3s ease;
+            margin: 10px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Мистический градиент для маршрута - ВСЕГДА ЧЁРНО-БЕЛЫЙ */
+        .mystical-btn {
+            background: linear-gradient(135deg, #000000 0%, #333333 25%, #666666 50%, #999999 75%, #ffffff 100%) !important;
+            background-size: 200% 200% !important;
+            animation: mysticalGradient 3s ease infinite;
+            color: white !important;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+            border: 1px solid rgba(255,255,255,0.2) !important;
+            transition: all 0.3s ease, box-shadow 0.3s ease !important;
+        }
+
+        /* Для светлой темы - белый текст для контраста */
+        [data-bs-theme="light"] .mystical-btn {
+            color: white !important;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+            border: 1px solid rgba(255,255,255,0.2) !important;
+        }
+
+        @keyframes mysticalGradient {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        /* Свечение при наведении - ОДИНАКОВОЕ ДЛЯ ОБЕИХ ТЕМ, НО ФОН НЕ МЕНЯЕТСЯ */
+        .mystical-btn:hover {
+            transform: translateY(-5px);
+            animation: mysticalGradient 1.5s ease infinite, mysticalGlow 2s ease-in-out infinite;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5),
+                       0 0 15px rgba(255, 255, 255, 0.4),
+                       0 0 25px rgba(255, 255, 255, 0.3),
+                       0 0 35px rgba(255, 255, 255, 0.2);
+            /* ФОН НЕ МЕНЯЕТСЯ - остаётся чёрно-белым градиентом */
+            background: linear-gradient(135deg, #000000 0%, #333333 25%, #666666 50%, #999999 75%, #ffffff 100%) !important;
+            background-size: 200% 200% !important;
+        }
+
+        /* Убираем любые специфические стили для светлой темы при наведении */
+        [data-bs-theme="light"] .mystical-btn:hover {
+            transform: translateY(-5px);
+            animation: mysticalGradient 1.5s ease infinite, mysticalGlow 2s ease-in-out infinite;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5),
+                       0 0 15px rgba(255, 255, 255, 0.4),
+                       0 0 25px rgba(255, 255, 255, 0.3),
+                       0 0 35px rgba(255, 255, 255, 0.2);
+            /* ФОН НЕ МЕНЯЕТСЯ - остаётся чёрно-белым градиентом */
+            background: linear-gradient(135deg, #000000 0%, #333333 25%, #666666 50%, #999999 75%, #ffffff 100%) !important;
+            background-size: 200% 200% !important;
+        }
+
+        /* Обычные кнопки экскурсий */
+        .excursion-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .excursion-btn:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
+
+        /* Center content vertically */
+        .cover-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        /* Theme toggle button */
+        .theme-toggle-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            background: rgba(255,255,255,0.95);
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            font-weight: 500;
+            border: none;
+        }
+
+        .theme-toggle-btn:hover {
+            background: white;
+            transform: scale(1.05);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+        }
+
+        [data-bs-theme="dark"] .theme-toggle-btn {
+            background: rgba(45, 55, 72, 0.95);
+            border-color: #4a5568;
+            color: white;
+        }
+
+        [data-bs-theme="dark"] .theme-toggle-btn:hover {
+            background: #2d3748;
+        }
+
+        /* Hide main content initially */
+        #mainContent {
+            display: none;
+        }
+
+        /* Text animations */
+        h1 {
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        [data-bs-theme="light"] h1 {
+            text-shadow: 2px 2px 4px rgba(255,255,255,0.5);
+        }
+
+        .lead {
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+
+        [data-bs-theme="light"] .lead {
+            text-shadow: 2px 2px 2px rgba(0,0,0,0.8);
+            color: white;
+            background-color: rgba(0,0,0,0.4);
+            border-radius: 10px;
+        }
+
+        /* Адаптивность для телефона - ИСПРАВЛЕНА КЛИКАБЕЛЬНОСТЬ */
+        @media (max-width: 768px) {
+            .theme-toggle-btn {
+                top: 10px;
+                right: 10px;
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+
+            .theme-toggle-btn span {
+                display: none;
+            }
+
+            .carousel-control-prev,
+            .carousel-control-next {
+                width: 45px;
+                height: 45px;
+                margin: 0 15px;
+            }
+
+            .carousel-control-prev {
+                left: 10px;
+            }
+
+            .carousel-control-next {
+                right: 10px;
+            }
+
+            .carousel-indicators {
+                bottom: 25px;
+            }
+
+            .carousel-indicators [data-bs-target] {
+                width: 35px;
+                height: 4px;
+                margin: 0 4px;
+            }
+
+            /* Увеличиваем область клика для мобильных */
+            .carousel-control-prev::after,
+            .carousel-control-next::after {
+                content: '';
+                position: absolute;
+                top: -10px;
+                left: -10px;
+                right: -10px;
+                bottom: -10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .carousel-control-prev,
+            .carousel-control-next {
+                width: 40px;
+                height: 40px;
+                margin: 0 10px;
+            }
+
+            .carousel-control-prev {
+                left: 5px;
+            }
+
+            .carousel-control-next {
+                right: 5px;
+            }
+
+            .carousel-indicators [data-bs-target] {
+                width: 30px;
+                height: 3px;
+            }
+        }
+
+        /* Гарантия кликабельности на телефонах */
+        @media (hover: none) and (pointer: coarse) {
+            .carousel-control-prev,
+            .carousel-control-next {
+                opacity: 0.9;
+            }
+
+            .carousel-control-prev:active,
+            .carousel-control-next:active {
+                background: rgba(255, 255, 255, 0.8);
+                transform: translateY(-50%) scale(0.95);
+            }
+        }
+    </style>
+</head>
+
+<body class="d-flex h-100 text-center">
+    <!-- Preloader -->
+    <div id="preloader">
+        <div class="loader"></div>
+    </div>
+
+    <!-- Background Carousel -->
+    <div class="carousel-container">
+        <div id="backgroundCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="5000" data-bs-touch="true">
+            <div class="carousel-indicators">
+                {% for image in carousel_images %}
+                <button type="button" data-bs-target="#backgroundCarousel" data-bs-slide-to="{{ forloop.counter0 }}"
+                        {% if forloop.first %}class="active" aria-current="true"{% endif %}
+                        aria-label="Slide {{ forloop.counter }}"></button>
+                {% endfor %}
+            </div>
+            <div class="carousel-inner">
+                {% for image in carousel_images %}
+                <div class="carousel-item {% if forloop.first %}active{% endif %}"
+                     style="background-image: url('{% static image %}')">
+                </div>
+                {% endfor %}
+            </div>
+            <!-- Стрелки карусели -->
+            <button class="carousel-control-prev" type="button" data-bs-target="#backgroundCarousel" data-bs-slide="prev">
+                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">Previous</span>
+            </button>
+            <button class="carousel-control-next" type="button" data-bs-target="#backgroundCarousel" data-bs-slide="next">
+                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">Next</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Кнопка смены темы -->
+    <button class="theme-toggle-btn" id="themeToggle">
+        <svg width="16" height="16" fill="currentColor" class="theme-icon">
+            <use href="#sun-fill"></use>
+        </svg>
+        <span>Тема</span>
+    </button>
+
+    <!-- Main content -->
+    <div class="cover-container d-flex w-100 h-100 p-3 mx-auto flex-column">
+        <header class="mb-auto">
+            <div>
+                <h3 class="float-md-start mb-0 animate-fade-in">Историческая карта</h3>
+                <nav class="nav nav-masthead justify-content-center float-md-end">
+                    <a class="nav-link fw-bold py-1 px-0 active animate-fade-in animate-delay-1" aria-current="page" href="#">Главная</a>
+                </nav>
+            </div>
+        </header>
+
+        <main class="px-3">
+            <div id="mainContent">
+                <h1 class="display-4 fw-bold animate-fade-in-up">Историческая интерактивная карта</h1>
+                <p class="lead fs-4 animate-fade-in-up animate-delay-1">Откройте для себя увлекательное путешествие по знаковым местам истории. Погрузитесь в прошлое и исследуйте события, которые изменили мир.</p>
+                <p class="mt-4 animate-fade-in-up animate-delay-2">
+                    <a href="#" class="btn btn-lg start-btn fw-bold" id="startButton" data-bs-toggle="modal" data-bs-target="#excursionModal">Начать экскурсию</a>
+                </p>
+            </div>
+        </main>
+    </div>
+
+    <!-- Excursion Modal -->
+    <div class="modal fade" id="excursionModal" tabindex="-1" aria-labelledby="excursionModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="excursionModalLabel">Выберите экскурсию</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-4">Выберите одну из доступных экскурсий для начала путешествия</p>
+                    <button class="btn excursion-btn w-100 mystical-btn" onclick="startExcursion('mystical-minsk')">
+                        МИСТИЧЕСКИЙ МАРШРУТ ПО УЛИЦАМ<br>МИНСКА
+                    </button>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- SVG иконки -->
+    <svg xmlns="http://www.w3.org/2000/svg" class="d-none">
+        <symbol id="sun-fill" viewBox="0 0 16 16">
+            <path d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8zm10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0zm-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707zM4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708z"/>
+        </symbol>
+        <symbol id="moon-stars-fill" viewBox="0 0 16 16">
+            <path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.348 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z"/>
+            <path d="M10.794 3.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387a1.734 1.734 0 0 0-1.097 1.097l-.387 1.162a.217.217 0 0 1-.412 0l-.387-1.162A1.734 1.734 0 0 0 9.31 6.593l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387a1.734 1.734 0 0 0 1.097-1.097l.387-1.162zM13.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a1.156 1.156 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a1.156 1.156 0 0 0-.732-.732l-.774-.258a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732L13.863.1z"/>
+        </symbol>
+    </svg>
+
+    <script>
+        (function() {
+            'use strict'
+
+            const preloader = document.getElementById('preloader');
+            const mainContent = document.getElementById('mainContent');
+            const themeToggle = document.getElementById('themeToggle');
+            const themeIcon = themeToggle.querySelector('.theme-icon use');
+            const body = document.body;
+
+            // Функция для установки темы с анимацией
+            function setTheme(theme) {
+                body.classList.add('theme-transition');
+                document.documentElement.setAttribute('data-bs-theme', theme);
+                localStorage.setItem('theme', theme);
+
+                if (theme === 'light') {
+                    themeIcon.setAttribute('href', '#sun-fill');
+                } else {
+                    themeIcon.setAttribute('href', '#moon-stars-fill');
+                }
+
+                setTimeout(() => {
+                    body.classList.remove('theme-transition');
+                }, 600);
+            }
+
+            function getPreferredTheme() {
+                return localStorage.getItem('theme') || 'light';
+            }
+
+            function initTheme() {
+                const theme = getPreferredTheme();
+                setTheme(theme);
+            }
+
+            themeToggle.addEventListener('click', () => {
+                const currentTheme = document.documentElement.getAttribute('data-bs-theme');
+                const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                setTheme(newTheme);
+            });
+
+            window.addEventListener('load', function() {
+                setTimeout(() => {
+                    if (preloader) {
+                        preloader.style.opacity = '0';
+                        setTimeout(() => {
+                            preloader.style.display = 'none';
+                        }, 500);
+                    }
+                    if (mainContent) {
+                        mainContent.style.display = 'block';
+                    }
+                }, 1000);
+            });
+
+            // Исправление для мобильных устройств
+            function initMobileFix() {
+                const carousel = document.getElementById('backgroundCarousel');
+                if (!carousel) return;
+
+                // Добавляем обработчики touch для мобильных
+                const prevBtn = carousel.querySelector('.carousel-control-prev');
+                const nextBtn = carousel.querySelector('.carousel-control-next');
+                const indicators = carousel.querySelectorAll('.carousel-indicators [data-bs-target]');
+
+                // Функция для принудительного переключения слайдов
+                function forceSlide(direction) {
+                    const bsCarousel = bootstrap.Carousel.getInstance(carousel);
+                    if (bsCarousel) {
+                        if (direction === 'prev') {
+                            bsCarousel.prev();
+                        } else {
+                            bsCarousel.next();
+                        }
+                    }
+                }
+
+                // Обработчики для стрелок
+                if (prevBtn) {
+                    prevBtn.addEventListener('touchstart', function(e) {
+                        e.preventDefault();
+                        forceSlide('prev');
+                    }, { passive: false });
+                }
+
+                if (nextBtn) {
+                    nextBtn.addEventListener('touchstart', function(e) {
+                        e.preventDefault();
+                        forceSlide('next');
+                    }, { passive: false });
+                }
+
+                // Обработчики для индикаторов
+                indicators.forEach(indicator => {
+                    indicator.addEventListener('touchstart', function(e) {
+                        e.preventDefault();
+                        const index = parseInt(this.getAttribute('data-bs-slide-to'));
+                        const bsCarousel = bootstrap.Carousel.getInstance(carousel);
+                        if (bsCarousel) {
+                            bsCarousel.to(index);
+                        }
+                    }, { passive: false });
+                });
+
+                console.log('Mobile carousel fix applied');
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+                initTheme();
+                // Задержка для инициализации карусели Bootstrap
+                setTimeout(initMobileFix, 500);
+            });
+
+        })();
+
+        function startExcursion(excursionType) {
+            const preloader = document.getElementById('preloader');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('excursionModal'));
+
+            modal.hide();
+
+            if (preloader) {
+                preloader.style.display = 'flex';
+                preloader.style.opacity = '1';
+            }
+
+            setTimeout(() => {
+                if (preloader) {
+                    preloader.style.display = 'none';
+                }
+                window.location.href = '/map/';
+            }, 1500);
+        }
+    </script>
+</body>
+</html>

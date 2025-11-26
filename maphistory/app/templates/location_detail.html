@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ location.title }} - Историческая карта</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Load static files -->
+    {% load static %}
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: white;
+            min-height: 100vh;
+            opacity: 0;
+            animation: fadeIn 0.8s ease-out forwards;
+            transition: all 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .location-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            overflow: hidden;
+            margin: 20px;
+            animation: cardSlideUp 0.6s ease-out 0.2s both;
+            transition: all 0.5s ease;
+        }
+
+        @keyframes cardSlideUp {
+            from { opacity: 0; transform: translateY(40px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .location-image {
+            width: 100%;
+            height: 300px;
+            object-fit: cover;
+            border: 8px solid white;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            margin: 20px;
+            width: calc(100% - 40px);
+            animation: imageFadeIn 0.8s ease-out 0.4s both;
+            transition: all 0.5s ease;
+        }
+
+        @keyframes imageFadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .location-content {
+            padding: 30px;
+            animation: contentFadeIn 0.6s ease-out 0.6s both;
+        }
+
+        @keyframes contentFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: rgba(255,255,255,0.9);
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            animation: buttonFadeIn 0.5s ease-out 0.8s both;
+        }
+
+        .back-btn:hover {
+            background: white;
+            transform: scale(1.1);
+        }
+
+        .theme-toggle-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(255,255,255,0.9);
+            border: none;
+            border-radius: 25px;
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            animation: buttonFadeIn 0.5s ease-out 0.8s both;
+        }
+
+        @keyframes buttonFadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .theme-toggle-btn:hover {
+            background: white;
+            transform: scale(1.05);
+        }
+
+        .location-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            transition: all 0.5s ease;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            color: #6c757d;
+            transition: all 0.5s ease;
+        }
+
+        .info-item svg {
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+
+        /* Темная тема */
+        [data-bs-theme="dark"] body {
+            background: #1a1a1a;
+            color: white;
+        }
+
+        [data-bs-theme="dark"] .location-card {
+            background: #2d3748;
+            color: white;
+        }
+
+        [data-bs-theme="dark"] .location-info {
+            background: #4a5568;
+        }
+
+        [data-bs-theme="dark"] .info-item {
+            color: #cbd5e0;
+        }
+
+        [data-bs-theme="dark"] .back-btn {
+            background: rgba(45, 55, 72, 0.9);
+            color: white;
+        }
+
+        [data-bs-theme="dark"] .back-btn:hover {
+            background: #2d3748;
+        }
+
+        [data-bs-theme="dark"] .theme-toggle-btn {
+            background: rgba(45, 55, 72, 0.9);
+            color: white;
+        }
+
+        [data-bs-theme="dark"] .theme-toggle-btn:hover {
+            background: #2d3748;
+        }
+
+        [data-bs-theme="dark"] .location-image {
+            border: 8px solid #4a5568;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        [data-bs-theme="dark"] .btn-primary {
+            background-color: #4f46e5;
+            border-color: #4f46e5;
+        }
+
+        [data-bs-theme="dark"] .btn-primary:hover {
+            background-color: #4338ca;
+            border-color: #4338ca;
+        }
+
+        /* Анимация смены темы */
+        body.theme-changing {
+            animation: themeChange 0.5s ease;
+        }
+
+        @keyframes themeChange {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Кнопка возврата -->
+    <button class="back-btn" onclick="window.location.href='/map/'">
+        <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
+        </svg>
+    </button>
+
+    <!-- Кнопка смены темы -->
+    <button class="theme-toggle-btn" id="themeToggle">
+        <svg width="16" height="16" fill="currentColor" class="theme-icon">
+            <use href="#sun-fill"></use>
+        </svg>
+        <span>Тема</span>
+    </button>
+
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="location-card">
+                    <img src="{% static location.image %}" alt="{{ location.title }}" class="location-image"
+                         onerror="this.src='https://via.placeholder.com/800x300/667eea/white?text=Изображение+локации'">
+
+                    <div class="location-content">
+                        <h1 class="display-5 fw-bold mb-4">{{ location.title }}</h1>
+
+                        <div class="location-info">
+                            <h6 class="fw-bold mb-3">📋 Информация о месте:</h6>
+                            <div class="info-item">
+                                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zm0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
+                                </svg>
+                                <span>{{ location.address }}</span>
+                            </div>
+                            <div class="info-item">
+                                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
+                                    <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+                                </svg>
+                                <span>Координаты: {{ location.coordinates }}</span>
+                            </div>
+                        </div>
+
+                        <div class="mt-4">
+                            <h4 class="fw-bold mb-3">📖 Полное описание</h4>
+                            <p class="lead" style="line-height: 1.8; text-align: justify;">
+                                {{ location.full_description|linebreaksbr }}
+                            </p>
+                        </div>
+
+                        <div class="mt-5 text-center">
+                            <button class="btn btn-primary btn-lg" onclick="window.location.href='/map/'">
+                                ← Вернуться к карте
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- SVG иконки -->
+    <svg xmlns="http://www.w3.org/2000/svg" class="d-none">
+        <symbol id="sun-fill" viewBox="0 0 16 16">
+            <path d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8zm10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0zm-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707zM4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708z"/>
+        </symbol>
+        <symbol id="moon-stars-fill" viewBox="0 0 16 16">
+            <path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z"/>
+            <path d="M10.794 3.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387a1.734 1.734 0 0 0-1.097 1.097l-.387 1.162a.217.217 0 0 1-.412 0l-.387-1.162A1.734 1.734 0 0 0 9.31 6.593l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387a1.734 1.734 0 0 0 1.097-1.097l.387-1.162zM13.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a1.156 1.156 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a1.156 1.156 0 0 0-.732-.732l-.774-.258a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732L13.863.1z"/>
+        </symbol>
+    </svg>
+
+    <script>
+        // Управление темой
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = themeToggle.querySelector('.theme-icon use');
+
+        function setTheme(theme) {
+            // Добавляем анимацию смены темы
+            document.body.classList.add('theme-changing');
+
+            document.documentElement.setAttribute('data-bs-theme', theme);
+            localStorage.setItem('theme', theme);
+
+            if (theme === 'light') {
+                themeIcon.setAttribute('href', '#sun-fill');
+            } else {
+                themeIcon.setAttribute('href', '#moon-stars-fill');
+            }
+
+            // Убираем класс анимации после завершения
+            setTimeout(() => {
+                document.body.classList.remove('theme-changing');
+            }, 500);
+        }
+
+        function getPreferredTheme() {
+            return localStorage.getItem('theme') || 'light';
+        }
+
+        // Инициализация темы
+        setTheme(getPreferredTheme());
+
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-bs-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            setTheme(newTheme);
+        });
+    </script>
+</body>
+</html>

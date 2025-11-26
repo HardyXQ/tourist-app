@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Интерактивная карта Минска</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
+
+    <!-- Load static files -->
+    {% load static %}
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .location-popup {
+            max-width: 300px;
+        }
+
+        .location-popup img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .location-popup h5 {
+            color: #2c3e50;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .location-popup p {
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .location-popup .address {
+            font-size: 12px;
+            color: #95a5a6;
+            margin-bottom: 15px;
+        }
+
+        /* СИНЯЯ КНОПКА БЕЗ ГРАДИЕНТА - ТЕКСТ ВСЕГДА БЕЛЫЙ */
+        .btn-details {
+            background: #007bff;
+            border: none;
+            color: white !important; /* Всегда белый текст */
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            width: 100%;
+            text-decoration: none;
+            display: block;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-details:hover {
+            background: #0056b3;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 123, 255, 0.4);
+            color: white !important; /* Белый текст при наведении */
+        }
+
+        /* КНОПКИ УПРАВЛЕНИЯ */
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: rgba(255,255,255,0.95);
+            border: 2px solid #e9ecef;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: none;
+        }
+
+        .back-btn:hover {
+            background: white;
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+        }
+
+        .theme-toggle-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(255,255,255,0.95);
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            font-weight: 500;
+            border: none;
+        }
+
+        .theme-toggle-btn:hover {
+            background: white;
+            transform: scale(1.05);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+        }
+
+        /* ЦИФРОВЫЕ МАРКЕРЫ - УВЕЛИЧЕНЫ ДЛЯ ПК */
+        .number-marker {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            border: 3px solid white;
+            border-radius: 50%;
+            width: 40px; /* Увеличил для ПК */
+            height: 40px; /* Увеличил для ПК */
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            font-size: 16px; /* Увеличил шрифт */
+            transition: all 0.3s ease;
+        }
+
+        .number-marker:hover {
+            transform: scale(1.2);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+        }
+
+        /* СКРЫВАЕМ КНОПКИ ZOOMA И АТТРИБУЦИЮ */
+        .leaflet-control-zoom {
+            display: none !important;
+        }
+
+        .leaflet-control-attribution {
+            display: none !important;
+        }
+
+        /* СТИЛИ ДЛЯ POPUP В ЛЕГКОЙ ТЕМЕ */
+        .leaflet-popup-content-wrapper {
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            background: white;
+            color: #2c3e50;
+        }
+
+        .leaflet-popup-tip {
+            background: white;
+            box-shadow: none;
+        }
+
+        /* АДАПТИВНОСТЬ ДЛЯ ТЕЛЕФОНА */
+        @media (max-width: 768px) {
+            .back-btn {
+                top: 10px;
+                left: 10px;
+                width: 45px;
+                height: 45px;
+            }
+
+            .theme-toggle-btn {
+                top: 10px;
+                right: 10px;
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+
+            .location-popup {
+                max-width: 280px;
+            }
+
+            .btn-details {
+                padding: 12px 20px;
+                font-size: 13px;
+            }
+
+            /* УМЕНЬШАЕМ МАРКЕРЫ НА ТЕЛЕФОНЕ */
+            .number-marker {
+                width: 32px;
+                height: 32px;
+                font-size: 14px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .back-btn {
+                width: 40px;
+                height: 40px;
+            }
+
+            .theme-toggle-btn {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+
+            .theme-toggle-btn span {
+                display: none;
+            }
+        }
+
+        /* СТИЛИ ДЛЯ ТЕМНОЙ ТЕМЫ */
+        [data-bs-theme="dark"] .back-btn,
+        [data-bs-theme="dark"] .theme-toggle-btn {
+            background: rgba(45, 55, 72, 0.95);
+            border-color: #4a5568;
+            color: white;
+        }
+
+        [data-bs-theme="dark"] .back-btn:hover,
+        [data-bs-theme="dark"] .theme-toggle-btn:hover {
+            background: #2d3748;
+        }
+
+        /* Гарантируем белый текст в кнопке в темной теме */
+        [data-bs-theme="dark"] .btn-details {
+            color: white !important;
+        }
+
+        /* СТИЛИ ДЛЯ POPUP В ТЕМНОЙ ТЕМЕ */
+        [data-bs-theme="dark"] .leaflet-popup-content-wrapper {
+            background: #2d3748;
+            color: #e2e8f0;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+        }
+
+        [data-bs-theme="dark"] .leaflet-popup-tip {
+            background: #2d3748;
+        }
+
+        [data-bs-theme="dark"] .location-popup h5 {
+            color: #f7fafc;
+        }
+
+        [data-bs-theme="dark"] .location-popup p {
+            color: #cbd5e0;
+        }
+
+        [data-bs-theme="dark"] .location-popup .address {
+            color: #a0aec0;
+        }
+
+        /* Дополнительно: темная тема для маркеров */
+        [data-bs-theme="dark"] .number-marker {
+            border-color: #2d3748;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+    <!-- Кнопка возврата -->
+    <button class="back-btn" onclick="window.location.href='/'">
+        <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
+        </svg>
+    </button>
+
+    <!-- Кнопка смены темы -->
+    <button class="theme-toggle-btn" id="themeToggle">
+        <svg width="16" height="16" fill="currentColor" class="theme-icon">
+            <use href="#sun-fill"></use>
+        </svg>
+        <span>Тема</span>
+    </button>
+
+    <!-- Карта -->
+    <div id="map"></div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+
+    <!-- SVG иконки -->
+    <svg xmlns="http://www.w3.org/2000/svg" class="d-none">
+        <symbol id="sun-fill" viewBox="0 0 16 16">
+            <path d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8zm10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0zm-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707zM4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708z"/>
+        </symbol>
+        <symbol id="moon-stars-fill" viewBox="0 0 16 16">
+            <path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.348 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z"/>
+            <path d="M10.794 3.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387a1.734 1.734 0 0 0-1.097 1.097l-.387 1.162a.217.217 0 0 1-.412 0l-.387-1.162A1.734 1.734 0 0 0 9.31 6.593l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387a1.734 1.734 0 0 0 1.097-1.097l.387-1.162zM13.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a1.156 1.156 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a1.156 1.156 0 0 0-.732-.732l-.774-.258a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732L13.863.1z"/>
+        </symbol>
+    </svg>
+
+    <script>
+        // Ждем полной загрузки DOM
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, initializing map...');
+
+            // ВСЕ ТОЧКИ С НУМЕРАЦИЕЙ 2,3,4,5,7,8,9
+            const locations = [
+                {
+                    id: 1,
+                    number: 1,
+                    title: "Призрак на Зыбицкой",
+                    short_description: "В XIX веке по улице Зыбицкой жил купец были две родные дочери и одна приемная...",
+                    lat: 53.905578,
+                    lng: 27.559352,
+                    address: "ул. Зыбицкая, 9, Минск",
+                    image: "{% static 'images/locations/ylica.jpg' %}"
+                },
+                {
+                    id: 2,
+                    number: 2,
+                    title: "Призрак Минской Ратуши",
+                    short_description: "История призрака Минской Ратуши берет начало в XVIII веке, когда жил на свете задира, пьяница и дебошир...",
+                    lat: 53.903577,
+                    lng: 27.556140,
+                    address: "Минск, площадь Свободы, 2А",
+                    image: "{% static 'images/locations/ratusha.jpg' %}"
+                },
+                {
+                    id: 3,
+                    number: 3,
+                    title: "Призрак Кальварийского кладбища",
+                    short_description: "Здесь в один из дней, похоронили умершую от тяжелой болезни молодую паненку...",
+                    lat: 53.907947,
+                    lng: 27.504365,
+                    address: "Минск, Кальварийское Кладбище",
+                    image: "{% static 'images/locations/calvary.jpg' %}"
+                },
+                {
+                    id: 4,
+                    number: 4,
+                    title: "Призрак Лошицкого парка",
+                    short_description: "Самым известным призраком, обитающим в нашей столице, стало привидение Ядвиги Любанской...",
+                    lat: 53.855533,
+                    lng: 27.579974,
+                    address: "Лошицкий усадебно-парковый комплекс, Минск",
+                    image: "{% static 'images/locations/loshitsa.jpg' %}"
+                },
+                {
+                    id: 5,
+                    number: 5,
+                    title: "Призрак около Михайловского сквера",
+                    short_description: "Парк известен благодаря установленным в нём скульптурным группам...",
+                    lat: 53.894536,
+                    lng: 27.551371,
+                    address: "Минск, Михайловский сквер",
+                    image: "{% static 'images/locations/mikhailovsky.jpg' %}"
+                },
+                {
+                    id: 6,
+                    number: 6,
+                    title: "Дуб-великан на Красноармейской",
+                    short_description: " У подножия одного из холмов на улице Красноармейской лежал валун...",
+                    lat: 53.896262,
+                    lng: 27.573356,
+                    address: "Красноармейская улица, Минск",
+                    image: "{% static 'images/locations/Dyb.jpg' %}"
+                },
+                {
+                    id: 7,
+                    number: 7,
+                    title: "Русалка в парке Янки Купалы",
+                    short_description: "Если пройтись вдоль по проспекту Независимости, мы войдем в парк имени Янки Купалы...",
+                    lat: 53.906670,
+                    lng: 27.567072,
+                    address: "Минск, Парк имени Янки Купалы",
+                    image: "{% static 'images/locations/kupala.jpg' %}"
+                },
+                {
+                    id: 8,
+                    number: 8,
+                    title: "Реликвия в Кафедральном соборе",
+                    short_description: "Здесь есть целый ряд замечательных икон Московской академической школы...",
+                    lat: 53.905096,
+                    lng: 27.556253,
+                    address: "Минск, ул. Кирилла и Мефодия, 3",
+                    image: "{% static 'images/locations/cathedral.jpg' %}"
+                },
+                {
+                    id: 9,
+                    number: 9,
+                    title: "Минский крокодил",
+                    short_description: "Именно за Дворцом Спорта раньше водились похожие на крокодилов крупные...",
+                    lat: 53.910709,
+                    lng: 27.549776,
+                    address: "Минск, Проспект Победителей, 4",
+                    image: "{% static 'images/locations/crocodile.jpg' %}"
+                }
+            ];
+
+            console.log('Locations data:', locations);
+
+            // ФИКСИРОВАННЫЙ ЦЕНТР МИНСКА - ПЛОЩАДЬ НЕЗАВИСИМОСТИ
+            const minskCenter = [53.901677, 27.558521]; // Центр Минска
+            const isMobile = window.innerWidth <= 768;
+            const optimalZoom = isMobile ? 13 : 12.5;
+
+            console.log('Minsk center:', minskCenter, 'Zoom:', optimalZoom, 'Mobile:', isMobile);
+
+            // Инициализация карты с отключенными контролами
+            const map = L.map('map', {
+                zoomControl: false,
+                attributionControl: false,
+                center: minskCenter,
+                zoom: optimalZoom,
+                zoomSnap: 0.1,
+                zoomDelta: 0.5
+            });
+
+            console.log('Map initialized');
+
+            // Добавление слоев карты
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: false,
+                maxZoom: 18,
+                minZoom: 10
+            }).addTo(map);
+
+            console.log('Tile layer added');
+
+            // Добавление маркеров с ЦИФРАМИ 2,3,4,5,7,8,9
+            locations.forEach((location, index) => {
+                console.log('Adding marker for:', location.title);
+
+                const customIcon = L.divIcon({
+                    className: 'number-marker',
+                    html: `<div>${location.number}</div>`,
+                    iconSize: [40, 40],
+                    iconAnchor: [20, 20],
+                    popupAnchor: [0, -20]
+                });
+
+                const marker = L.marker([location.lat, location.lng], {
+                    icon: customIcon
+                }).addTo(map);
+
+                const popupContent = `
+                    <div class="location-popup">
+                        <img src="${location.image}" alt="${location.title}"
+                             onerror="this.src='https://via.placeholder.com/300x150/667eea/white?text=Изображение'">
+                        <h5>${location.title}</h5>
+                        <p>${location.short_description}</p>
+                        <div class="address">📍 ${location.address}</div>
+                        <a href="/location/${location.id}/" class="btn-details">
+                            Подробнее
+                        </a>
+                    </div>
+                `;
+
+                marker.bindPopup(popupContent);
+            });
+
+            console.log('All markers added');
+
+            // УПРАВЛЕНИЕ ТЕМОЙ
+            const themeToggle = document.getElementById('themeToggle');
+            const themeIcon = themeToggle.querySelector('.theme-icon use');
+
+            function setTheme(theme) {
+                document.documentElement.setAttribute('data-bs-theme', theme);
+                localStorage.setItem('theme', theme);
+
+                if (theme === 'light') {
+                    themeIcon.setAttribute('href', '#sun-fill');
+                } else {
+                    themeIcon.setAttribute('href', '#moon-stars-fill');
+                }
+            }
+
+            function getPreferredTheme() {
+                return localStorage.getItem('theme') || 'light';
+            }
+
+            // Инициализация темы
+            setTheme(getPreferredTheme());
+
+            // Обработчики событий
+            themeToggle.addEventListener('click', () => {
+                const currentTheme = document.documentElement.getAttribute('data-bs-theme');
+                const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                setTheme(newTheme);
+            });
+
+            // ФУНКЦИЯ ДЛЯ ГАРАНТИРОВАННОГО ЦЕНТРИРОВАНИЯ КАРТЫ
+            function ensureMapCentered() {
+                console.log('Ensuring map is centered on Minsk...');
+
+                // Обновляем размер карты
+                map.invalidateSize();
+
+                // Принудительно устанавливаем центр и зум
+                map.setView(minskCenter, optimalZoom, {
+                    animate: false,
+                    duration: 0
+                });
+
+                console.log('Map center forced to:', map.getCenter());
+            }
+
+            // ОБРАБОТЧИК ДЛЯ ПЕРЕЗАГРУЗКИ КАРТЫ ПРИ ИЗМЕНЕНИИ РАЗМЕРА
+            window.addEventListener('resize', function() {
+                setTimeout(() => {
+                    ensureMapCentered();
+                }, 100);
+            });
+
+            // ГАРАНТИРУЕМ ЦЕНТРИРОВАНИЕ ПРИ ЗАГРУЗКЕ
+            // Используем несколько таймеров для надежности
+            setTimeout(ensureMapCentered, 100);
+            setTimeout(ensureMapCentered, 500);
+            setTimeout(ensureMapCentered, 1000);
+            setTimeout(ensureMapCentered, 2000);
+
+            // Также центрируем когда карта готова
+            map.whenReady(function() {
+                console.log('Map ready, centering...');
+                ensureMapCentered();
+            });
+
+            // Обработчик для события загрузки карты
+            map.on('load', function() {
+                console.log('Map loaded event, centering...');
+                ensureMapCentered();
+            });
+
+            // Дополнительная проверка: если карта сместилась, возвращаем в центр
+            let centerFixAttempts = 0;
+            const maxCenterFixAttempts = 5;
+
+            map.on('moveend', function() {
+                const currentCenter = map.getCenter();
+                const distance = map.distance(currentCenter, minskCenter);
+
+                // Если карта сместилась более чем на 1 км от центра Минска
+                if (distance > 1000 && centerFixAttempts < maxCenterFixAttempts) {
+                    console.log('Map moved away from center, fixing... Distance:', Math.round(distance), 'meters');
+                    ensureMapCentered();
+                    centerFixAttempts++;
+                }
+            });
+
+            // Обработчик ошибок
+            window.addEventListener('error', function(e) {
+                console.error('Global error:', e.error);
+            });
+        });
+    </script>
+</body>
+</html>
